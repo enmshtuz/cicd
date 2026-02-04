@@ -14,3 +14,6 @@ secret_detection:
   stage: secret-detection
 include:
 - template: Security/Secret-Detection.gitlab-ci.yml
+
+# place your pipeline below
+
