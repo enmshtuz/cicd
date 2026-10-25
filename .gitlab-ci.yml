@@ -16,7 +16,6 @@ secret_detection:
 include:
 - template: Security/Secret-Detection.gitlab-ci.yml
 
-
 build_docker_image:
   stage: build-push
   image:
