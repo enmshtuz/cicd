@@ -1,17 +1,22 @@
 stages:
   - build-push
+# Use variables:
+
+# ECR_REPOSITORY_URL: url for ECR connection
+# ECR_REPOSITORY_NAME: name of deployed repository
+# ECR_PASSWORD: password got by command aws ecr get-login-password --region <region>
 
 build_docker_image:
   stage: build-push
   image:
     name: quay.io/podman/stable
+
   before_script:
     - echo "Building Docker image..."
   script:
+    - podman build -f Dockerfile -t $ECR_REPOSITORY_URL/$ECR_REPOSITORY_NAME:latest .
     - echo "$ECR_PASSWORD" | podman login --username AWS --password-stdin $ECR_REPOSITORY_URL
-    - podman build -f Dockerfile -t $ECR_REPOSITORY_URL/$ECR_REPOSITORY_NAME:latest -t $ECR_REPOSITORY_URL/$ECR_REPOSITORY_NAME:$CI_COMMIT_SHA .
     - podman push $ECR_REPOSITORY_URL/$ECR_REPOSITORY_NAME:latest
-    - podman push $ECR_REPOSITORY_URL/$ECR_REPOSITORY_NAME:$CI_COMMIT_SHA
   artifacts:
     reports:
       dotenv: build.env
