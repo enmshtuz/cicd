@@ -25,13 +25,13 @@ build_docker_image:
   stage: build-push
   image:
     name: quay.io/podman/stable
-
   before_script:
     - echo "Building Docker image..."
   script:
-    - podman build -f Dockerfile -t $ECR_REPOSITORY_URL/$ECR_REPOSITORY_NAME:latest .
+    - podman build -f Dockerfile -t $ECR_REPOSITORY_URL/$ECR_REPOSITORY_NAME:latest -t $ECR_REPOSITORY_URL/$ECR_REPOSITORY_NAME:$CI_COMMIT_SHA .
     - echo "$ECR_PASSWORD" | podman login --username AWS --password-stdin $ECR_REPOSITORY_URL
     - podman push $ECR_REPOSITORY_URL/$ECR_REPOSITORY_NAME:latest
+    - podman push $ECR_REPOSITORY_URL/$ECR_REPOSITORY_NAME:$CI_COMMIT_SHA
   artifacts:
     reports:
       dotenv: build.env
