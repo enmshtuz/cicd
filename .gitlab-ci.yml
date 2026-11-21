@@ -63,7 +63,6 @@ push_image:
     - echo "Logging in to Amazon ECR..."
     - ECR_PASSWORD="$(aws ecr get-login-password --region "${AWS_DEFAULT_REGION}")"
     - echo "${ECR_PASSWORD}" | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
-denied: User: arn:aws:sts::207567784907:assumed-role/SandboxAccessRole-console/SandboxAccessSession-console is not authorized to perform: ecr:InitiateLayerUpload on resource: arn:aws:ecr:us-east-1:156041430087:repository/cmtr-2dfktx7p-static because no resource-based policy allows the ecr:InitiateLayerUpload action. Go to https://us-east-1.console.aws.amazon.com/iam/home?region=us-east-1#/authorization-details/6cs9g9qe9ea53geuwbqp78umn for complete details, or call the GetRequestAuthorizationDetails API with the following authorization id: 6cs9g9qe9ea53geuwbqp78umn
     - echo "Pushing Docker image..."
     - docker push "${ECR_IMAGE}:${IMAGE_TAG}"
     - docker push "${ECR_IMAGE}:${IMAGE_LATEST}"
