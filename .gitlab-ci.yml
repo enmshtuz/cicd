@@ -1,35 +1,71 @@
-# You can override the included template(s) by including variable overrides
-# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
-# Secret Detection customization: https://docs.gitlab.com/user/application_security/secret_detection/pipeline/configure
-# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
-# Container Scanning customization: https://docs.gitlab.com/ee/user/application_security/container_scanning/#customizing-the-container-scanning-settings
-# Note that environment variables can be set in several places
-# See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
 stages:
-- test
-- secret-detection
-- build-push
+  - build
+  - push
 
-# Use  variables:
-  
-#  ECR_REPOSITORY_URL: url for ECR connection 
-#  ECR_REPOSITORY_NAME: name of deployed repository
-#  ECR_PASSWORD: password got  by command aws ecr get-login-password --region <region>
+variables:
+  AWS_DEFAULT_REGION: "us-east-1"
+  AWS_ACCOUNT_ID: "156041430087"
+  ECR_REPOSITORY: "cmtr-2dfktx7p-static"
 
-build_docker_image:
-  stage: build-push
-  image:
-    name: quay.io/podman/stable
+  IMAGE_TAG: "$CI_COMMIT_SHA"
+  IMAGE_LATEST: "latest"
+
+  # Docker-in-Docker without TLS for this GitLab runner
+  DOCKER_HOST: "tcp://docker:2375"
+  DOCKER_TLS_CERTDIR: ""
+
+build_image:
+  stage: build
+
+  image: docker:29.8.0-cli
+
+  services:
+    - name: docker:29.8.0-dind
+      alias: docker
+      variables:
+        HEALTHCHECK_TCP_PORT: "2375"
+
+  script:
+    - echo "Building Docker image..."
+    - docker version
+    - export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+    - export ECR_IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}"
+    - docker build --platform linux/amd64 -t "${ECR_IMAGE}:${IMAGE_TAG}" .
+    - docker tag "${ECR_IMAGE}:${IMAGE_TAG}" "${ECR_IMAGE}:${IMAGE_LATEST}"
+    - docker save "${ECR_IMAGE}:${IMAGE_TAG}" "${ECR_IMAGE}:${IMAGE_LATEST}" -o image.tar
+    - echo "Docker image built successfully"
+
+  artifacts:
+    paths:
+      - image.tar
+
+push_image:
+  stage: push
+
+  image: docker:29.8.0-cli
+
+  services:
+    - name: docker:29.8.0-dind
+      alias: docker
+      variables:
+        HEALTHCHECK_TCP_PORT: "2375"
 
   before_script:
-    - echo "Building Docker image..."
+    - apk add --no-cache aws-cli
+
   script:
-    - podman build -f Dockerfile -t $ECR_REPOSITORY_URL/$ECR_REPOSITORY_NAME:latest .
-    - echo "$ECR_PASSWORD" | podman login --username AWS --password-stdin $ECR_REPOSITORY_URL
-    - podman push $ECR_REPOSITORY_URL/$ECR_REPOSITORY_NAME:latest  
-  artifacts:
-    reports:
-      dotenv: build.env
-  only:
-    - main
-    - develop
+    - echo "Loading Docker image..."
+    - docker load -i image.tar
+
+    - export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+    - export ECR_IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}"
+
+    - echo "Logging in to Amazon ECR..."
+    - ECR_PASSWORD="$(aws ecr get-login-password --region "${AWS_DEFAULT_REGION}")"
+    - echo "${ECR_PASSWORD}" | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
+
+    - echo "Pushing Docker image..."
+    - docker push "${ECR_IMAGE}:${IMAGE_TAG}"
+    - docker push "${ECR_IMAGE}:${IMAGE_LATEST}"
+
+    - echo "Successfully pushed image to ECR"
