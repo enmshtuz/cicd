@@ -4,7 +4,7 @@ stages:
 
 variables:
   AWS_DEFAULT_REGION: "us-east-1"
-  AWS_ACCOUNT_ID: "207567784907"
+  AWS_ACCOUNT_ID: "423623862923"
   ECR_REPOSITORY: "cmtr-2dfktx7p-static"
 
   IMAGE_TAG: "$CI_COMMIT_SHA"
